@@ -659,9 +659,10 @@ class GPTInsightsService:
             for item in screenshots:
                 # The API expects bytes, so we decode the base64 string
                 image_bytes = base64.b64decode(item["screenshot"])
+                mime_type = item.get("mime_type") or "image/png"
                 content.append({
                     "inline_data": {
-                        "mime_type": "image/png",
+                        "mime_type": mime_type,
                         "data": base64.b64encode(image_bytes).decode('utf-8')
                     }
                 })
