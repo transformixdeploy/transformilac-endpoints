@@ -275,17 +275,13 @@ def branding_audit():
 
         # Images from screenshots
         website_img_b64 = ""
-        website_mime = ""
         insta_img_b64 = ""
-        insta_mime = ""
         for s in result.get("screenshots", []):
             u = s.get("url", "")
             if website_url and website_url in u:
                 website_img_b64 = s.get("screenshot", "")
-                website_mime = s.get("mime_type", "image/png") if website_img_b64 else ""
             if instagram_link and instagram_link in u:
                 insta_img_b64 = s.get("screenshot", "")
-                insta_mime = s.get("mime_type", "image/png") if insta_img_b64 else ""
 
         payload = {
             "brandColors": {
@@ -323,8 +319,8 @@ def branding_audit():
                 {"title": item.get("area", ""), "score": item.get("score", 0)}
                 for item in (analysis.get("scorecard", []) or [])
             ],
-            "websiteImage": {"data": website_img_b64, "mimeType": website_mime or "image/png"} if website_img_b64 else {"data": "", "mimeType": ""},
-            "instaImage": {"data": insta_img_b64, "mimeType": insta_mime or "image/png"} if insta_img_b64 else {"data": "", "mimeType": ""},
+            "websiteImage": {"data": website_img_b64, "mimeType": "image/png"} if website_img_b64 else {"data": "", "mimeType": ""},
+            "instaImage": {"data": insta_img_b64, "mimeType": "image/png"} if insta_img_b64 else {"data": "", "mimeType": ""},
             "logoImage": {"data": logo_image_b64 or "", "mimeType": "image/png" if logo_image_b64 else ""},
         }
 
