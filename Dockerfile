@@ -49,11 +49,10 @@ COPY . .
 # Env expected to be provided by Render
 ENV PYTHONUNBUFFERED=1
 ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 # Health: avoid TF noisy logs (optional)
 ENV TF_CPP_MIN_LOG_LEVEL=2
 
 # Start the web service (Render injects $PORT). Use shell so $PORT expands.
 CMD ["sh", "-c", "waitress-serve --listen=0.0.0.0:$PORT flask_api:app"]
-
-
