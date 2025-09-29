@@ -27,10 +27,10 @@ class CompetitorSearchService:
         self.webdriver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chromedriver.exe")
         
     def setup_browser(self):
-        """Initialize and return the Chrome WebDriver."""
+        """Initialize and return the Chrome WebDriver using system Chromium in Docker/Render."""
         try:
             options = Options()
-            options.add_argument("--headless")
+            options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-gpu")
@@ -39,22 +39,29 @@ class CompetitorSearchService:
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
-            
-            # Use Chrome WebDriver with explicit path
-            try:
-                from selenium.webdriver.chrome.service import Service
-                service = Service(executable_path="chromedriver.exe")
+
+            chrome_binary = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+            chromedriver_path = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+            if os.path.exists(chrome_binary):
+                options.binary_location = chrome_binary
+
+            from selenium.webdriver.chrome.service import Service
+            if os.path.exists(chromedriver_path):
+                service = Service(executable_path=chromedriver_path)
                 driver = webdriver.Chrome(service=service, options=options)
-                driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-                driver.implicitly_wait(10)
-                logging.info("Successfully initialized Chrome WebDriver")
-                return driver
-            except Exception as chrome_error:
-                logging.warning(f"Chrome WebDriver failed: {chrome_error}")
-                # Fallback to Edge if Chrome is not available
-                logging.info("Falling back to Edge WebDriver...")
-                return self._setup_edge_fallback()
-                
+            else:
+                # Windows local fallback
+                local_driver = "chromedriver.exe"
+                if os.path.exists(local_driver):
+                    service = Service(executable_path=local_driver)
+                    driver = webdriver.Chrome(service=service, options=options)
+                else:
+                    driver = webdriver.Chrome(options=options)
+
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            driver.implicitly_wait(10)
+            logging.info("Successfully initialized Chrome WebDriver")
+            return driver
         except Exception as e:
             logging.error(f"Failed to setup browser: {str(e)}")
             raise Exception(f"WebDriver setup failed: {str(e)}")
