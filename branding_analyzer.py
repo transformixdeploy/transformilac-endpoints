@@ -1,4 +1,5 @@
 from gpt_insights_service import GPTInsightsService
+import os
 import base64
 import asyncio
 import platform
