@@ -60,47 +60,50 @@ class SentimentAnalyzer:
     def setup_browser(self):
         """Initialize and return the Chrome WebDriver in headless mode for servers."""
         from selenium.webdriver.chrome.service import Service
-        
-        edge_options = Options()
+
+        chrome_options = Options()
         # Headless mode for servers
         try:
-            edge_options.add_argument("--headless=new")
+            chrome_options.add_argument("--headless=new")
         except Exception:
-            edge_options.add_argument("--headless")
-        
+            chrome_options.add_argument("--headless")
+
         # Stability flags
-        edge_options.add_argument("--disable-gpu")
-        edge_options.add_argument("--no-sandbox")
-        edge_options.add_argument("--disable-dev-shm-usage")
-        edge_options.add_argument("--disable-software-rasterizer")
-        edge_options.add_argument("--disable-blink-features=AutomationControlled")
-        edge_options.add_argument("--lang=en-US")
-        edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        edge_options.add_experimental_option("useAutomationExtension", False)
-        
-        # Add window size for better visibility
-        edge_options.add_argument("--window-size=1920,1080")
-        # Do not force start-maximized in headless
-        
-        try:
-            # Try to use the local chromedriver.exe from the project folder
-            driver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chromedriver.exe")
-            
-            if os.path.exists(driver_path):
-                service = Service(executable_path=driver_path)
-                return webdriver.Chrome(service=service, options=edge_options)
-            else:
-                logging.warning(f"Local driver not found at {driver_path}, trying system Chrome driver...")
-                return webdriver.Chrome(options=edge_options)
-                
-        except Exception as e:
-            logging.error(f"Error with local driver: {e}")
-            logging.info("Falling back to system Chrome driver...")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--lang=en-US")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        chrome_options.add_argument("--window-size=1920,1080")
+
+        # Use explicit binary and driver paths when available (Docker/Render)
+        chrome_binary = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+        chromedriver_path = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+        if os.path.exists(chrome_binary):
             try:
-                return webdriver.Chrome(options=edge_options)
-            except Exception as fallback_error:
-                logging.error(f"System driver also failed: {fallback_error}")
-                raise Exception(f"Could not initialize Chrome WebDriver. Please ensure Chrome and chromedriver are properly installed. Local driver error: {e}, System driver error: {fallback_error}")
+                chrome_options.binary_location = chrome_binary
+            except Exception:
+                pass
+
+        try:
+            if os.path.exists(chromedriver_path):
+                service = Service(executable_path=chromedriver_path)
+                return webdriver.Chrome(service=service, options=chrome_options)
+
+            # Windows local fallback: project chromedriver.exe
+            driver_path_win = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chromedriver.exe")
+            if os.path.exists(driver_path_win):
+                service = Service(executable_path=driver_path_win)
+                return webdriver.Chrome(service=service, options=chrome_options)
+
+            # Last resort: rely on Selenium Manager (may require internet)
+            return webdriver.Chrome(options=chrome_options)
+        except Exception as error:
+            logging.error(f"Could not initialize Chrome WebDriver: {error}")
+            raise
 
     def expand_review_if_needed(self, browser, review):
         """
