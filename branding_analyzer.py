@@ -36,9 +36,18 @@ class BrandingAnalyzer:
             chrome_options.add_argument("--disable-web-security")
             chrome_options.add_argument("--allow-running-insecure-content")
             
-            # Create driver with automatic ChromeDriver management
-            service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=chrome_options)
+            # Prefer system Chromium + chromedriver in Docker/Render
+            chrome_binary = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+            chromedriver_path = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+            if os.path.exists(chrome_binary):
+                chrome_options.binary_location = chrome_binary
+            if os.path.exists(chromedriver_path):
+                service = Service(executable_path=chromedriver_path)
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+            else:
+                # Fallback to webdriver-manager (local dev)
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=chrome_options)
             
             try:
                 # Navigate to URL
