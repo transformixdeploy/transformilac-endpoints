@@ -12,11 +12,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 from selenium.webdriver.common.keys import Keys
-import json
-import re
-from urllib.request import urlopen
-import instaloader
-from PIL import Image
 
 class BrandingAnalyzer:
     """
@@ -31,11 +26,7 @@ class BrandingAnalyzer:
         try:
             # Set up Chrome options
             chrome_options = Options()
-            # Prefer new headless to better emulate
-            try:
-                chrome_options.add_argument("--headless=new")
-            except Exception:
-                chrome_options.add_argument("--headless")  # Run in headless mode
+            chrome_options.add_argument("--headless")  # Run in headless mode
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
@@ -45,8 +36,6 @@ class BrandingAnalyzer:
             chrome_options.add_experimental_option('useAutomationExtension', False)
             chrome_options.add_argument("--disable-web-security")
             chrome_options.add_argument("--allow-running-insecure-content")
-            chrome_options.add_argument("--lang=en-US")
-            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
             
             # Prefer system Chromium + chromedriver in Docker/Render
             chrome_binary = os.getenv("CHROME_BIN", "/usr/bin/chromium")
@@ -75,11 +64,6 @@ class BrandingAnalyzer:
 
                 # If on Instagram, try to close the login popup
                 if "instagram.com" in url.lower():
-                    # Detect if redirected to login page
-                    current_url = driver.current_url
-                    if "login" in current_url:
-                        print(f"Detected Instagram login redirect for {url} -> {current_url}")
-                        raise RuntimeError("instagram_login_redirect")
                     try:
                         # Updated selector for the close button
                         close_button_selector = "svg[aria-label='Close']"
@@ -133,57 +117,8 @@ class BrandingAnalyzer:
                 
         except Exception as e:
             print(f"Error taking screenshot of {url}: {str(e)}")
-            # Instagram-specific fallback using instaloader to fetch latest post thumbnail
-            if "instagram.com" in url.lower():
-                try:
-                    profile_match = re.search(r"instagram\.com/([^/?#]+)/?", url)
-                    if profile_match:
-                        username = profile_match.group(1)
-                        print(f"Attempting instaloader fallback for Instagram user: {username}")
-                        L = instaloader.Instaloader(download_pictures=False,
-                                                    download_videos=False,
-                                                    download_video_thumbnails=False,
-                                                    download_geotags=False,
-                                                    save_metadata=False,
-                                                    compress_json=False,
-                                                    dirname_pattern="/tmp/insta")
-                        profile = instaloader.Profile.from_username(L.context, username)
-                        posts = profile.get_posts()
-                        first_post = next(posts, None)
-                        if first_post and first_post.url:
-                            with urlopen(first_post.url) as resp:
-                                image_bytes = resp.read()
-                                print(f"Instaloader fallback fetched {len(image_bytes)} bytes from {first_post.url}")
-                                return image_bytes
-                except Exception as ig_e:
-                    print(f"Instaloader fallback failed: {str(ig_e)}")
-
             # Return a minimal mock image as fallback
             return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\tpHYs\x00\x00\x0b\x13\x00\x00\x0b\x13\x01\x00\x9a\x9c\x18\x00\x00\x00\x07tIME\x07\xe6\x06\x16\x0e\x1c\x0c\xc8\xc8\xc8\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01\xf5\xf7\xd0\xc4\x00\x00\x00\x00IEND\xaeB`\x82'
-
-    def _detect_mime_type(self, image_bytes: bytes) -> str:
-        """Best-effort detection of image mime type."""
-        try:
-            with Image.open(io.BytesIO(image_bytes)) as img:  # type: ignore[name-defined]
-                fmt = (img.format or "PNG").upper()
-                if fmt == "PNG":
-                    return "image/png"
-                if fmt in ("JPEG", "JPG"):
-                    return "image/jpeg"
-                if fmt == "WEBP":
-                    return "image/webp"
-                if fmt == "GIF":
-                    return "image/gif"
-        except Exception:
-            pass
-        # Fallback by magic numbers
-        if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
-            return "image/png"
-        if image_bytes[:2] == b"\xff\xd8":
-            return "image/jpeg"
-        if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
-            return "image/webp"
-        return "image/png"
 
     async def analyze_branding(self, urls: list[str], branding_profile=None):
         """
@@ -201,13 +136,11 @@ class BrandingAnalyzer:
             try:
                 # Take screenshot using Selenium
                 screenshot_bytes = self.take_screenshot(url)
-                mime_type = self._detect_mime_type(screenshot_bytes)
                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                 
                 screenshots.append({
                     "url": url,
-                    "screenshot": screenshot_base64,
-                    "mime_type": mime_type
+                    "screenshot": screenshot_base64
                 })
             except Exception as e:
                 print(f"Failed to process {url}: {str(e)}")
