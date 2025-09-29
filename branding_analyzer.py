@@ -16,6 +16,7 @@ import json
 import re
 from urllib.request import urlopen
 import instaloader
+from PIL import Image
 
 class BrandingAnalyzer:
     """
@@ -160,6 +161,30 @@ class BrandingAnalyzer:
             # Return a minimal mock image as fallback
             return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\tpHYs\x00\x00\x0b\x13\x00\x00\x0b\x13\x01\x00\x9a\x9c\x18\x00\x00\x00\x07tIME\x07\xe6\x06\x16\x0e\x1c\x0c\xc8\xc8\xc8\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01\xf5\xf7\xd0\xc4\x00\x00\x00\x00IEND\xaeB`\x82'
 
+    def _detect_mime_type(self, image_bytes: bytes) -> str:
+        """Best-effort detection of image mime type."""
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as img:  # type: ignore[name-defined]
+                fmt = (img.format or "PNG").upper()
+                if fmt == "PNG":
+                    return "image/png"
+                if fmt in ("JPEG", "JPG"):
+                    return "image/jpeg"
+                if fmt == "WEBP":
+                    return "image/webp"
+                if fmt == "GIF":
+                    return "image/gif"
+        except Exception:
+            pass
+        # Fallback by magic numbers
+        if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
+            return "image/png"
+        if image_bytes[:2] == b"\xff\xd8":
+            return "image/jpeg"
+        if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+            return "image/webp"
+        return "image/png"
+
     async def analyze_branding(self, urls: list[str], branding_profile=None):
         """
         Analyze branding for a list of URLs.
@@ -176,11 +201,13 @@ class BrandingAnalyzer:
             try:
                 # Take screenshot using Selenium
                 screenshot_bytes = self.take_screenshot(url)
+                mime_type = self._detect_mime_type(screenshot_bytes)
                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                 
                 screenshots.append({
                     "url": url,
-                    "screenshot": screenshot_base64
+                    "screenshot": screenshot_base64,
+                    "mime_type": mime_type
                 })
             except Exception as e:
                 print(f"Failed to process {url}: {str(e)}")
